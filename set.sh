@@ -38,7 +38,11 @@ else
     sudo systemctl start docker
 fi
 
-
+# Login to GHCR
+echo "Logging in to GitHub Container Registry..."
+read -sp "Enter your GitHub PAT (Personal Access Token): " GITHUB_TOKEN
+echo
+echo "$GITHUB_TOKEN" | docker login ghcr.io -u iqlab2025 --password-stdin
 
 echo "Fetching docker-compose.yaml..."
 curl -sSL https://raw.githubusercontent.com/Iqlab2025/scripts/main/docker-compose.yaml -o docker-compose.yaml
