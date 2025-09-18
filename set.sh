@@ -39,7 +39,7 @@ else
 fi
 
 echo "Logging in to GitHub Docker Registry..."
-echo "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" | docker login ghcr.io -u iqlab2025 --password-stdin
+echo "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" | docker login ghcr.io -u iqlab2025 --password-stdin
 
 echo "Fetching docker-compose.yaml..."
 curl -sSL https://raw.githubusercontent.com/Iqlab2025/scripts/main/docker-compose.yaml -o docker-compose.yaml
