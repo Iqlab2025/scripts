@@ -32,6 +32,10 @@ else
         echo "Installing Docker Compose..."
         sudo apt install -y docker-compose
     fi
+
+    echo "Enabling and starting Docker daemon..."
+    sudo systemctl enable docker
+    sudo systemctl start docker
 fi
 
 echo "Logging in to GitHub Docker Registry..."
