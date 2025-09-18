@@ -39,7 +39,9 @@ else
 fi
 
 echo "Logging in to GitHub Docker Registry..."
-echo "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" | docker login ghcr.io -u iqlab2025 --password-stdin
+read -sp "Enter your GitHub PAT (Personal Access Token): " GITHUB_TOKEN
+echo
+docker login ghcr.io -u iqlab2025 --password-stdin <<< "$GITHUB_TOKEN"
 
 echo "Fetching docker-compose.yaml..."
 curl -sSL https://raw.githubusercontent.com/Iqlab2025/scripts/main/docker-compose.yaml -o docker-compose.yaml
