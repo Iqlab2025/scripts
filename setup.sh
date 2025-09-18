@@ -1,93 +1,62 @@
 #!/usr/bin/env bash
+
 set -e
 
-echo "=== System bootstrap for Zabbix stack ==="
-
-# Detect OS
-OS="$(uname -s)"
-
-# -------------------
-# Ubuntu/Debian setup
-# -------------------
-if [ "$OS" = "Linux" ]; then
-    echo "[*] Updating packages..."
-    sudo apt update && sudo apt upgrade -y
-
-    echo "[*] Checking Git..."
-    if ! command -v git >/dev/null 2>&1; then
-        echo "[*] Installing Git..."
-        sudo apt install -y git
-    else
-        echo "[*] Git already installed."
-    fi
-
-    echo "[*] Checking Docker..."
-    if ! command -v docker >/dev/null 2>&1; then
-        echo "[*] Installing Docker..."
-        sudo apt install -y docker.io
-        sudo systemctl enable docker
-        sudo systemctl start docker
-    else
-        echo "[*] Docker already installed."
-    fi
-
-    echo "[*] Checking Docker Compose..."
-    if ! command -v docker-compose >/dev/null 2>&1; then
-        echo "[*] Installing Docker Compose..."
-        sudo apt install -y docker-compose
-    else
-        echo "[*] Docker Compose already installed."
-    fi
+echo "=== Step 1: Update system packages ==="
+if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    sudo apt update -y && sudo apt upgrade -y
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+    brew update && brew upgrade
+else
+    echo "Unsupported OS: $OSTYPE"
+    exit 1
 fi
 
-# -------------------
-# macOS setup
-# -------------------
-if [ "$OS" = "Darwin" ]; then
-    echo "[*] macOS detected."
-
-    echo "[*] Checking Homebrew..."
-    if ! command -v brew >/dev/null 2>&1; then
-        echo "[*] Installing Homebrew..."
-        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    fi
-
-    echo "[*] Checking Git..."
-    if ! command -v git >/dev/null 2>&1; then
-        echo "[*] Installing Git..."
+echo "=== Step 2: Check and install Git ==="
+if ! command -v git &> /dev/null; then
+    echo "Git not found. Installing..."
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        sudo apt install -y git
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
         brew install git
     fi
+else
+    echo "Git already installed."
+fi
 
-    echo "[*] Checking Docker..."
-    if ! command -v docker >/dev/null 2>&1; then
-        echo "[*] Installing Docker Desktop..."
+echo "=== Step 3: Install Docker ==="
+if ! command -v docker &> /dev/null; then
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        sudo apt install -y docker.io
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
         brew install --cask docker
-        echo ">>> IMPORTANT: Start Docker Desktop manually at least once!"
+        open /Applications/Docker.app
+        echo "Please wait for Docker Desktop to finish starting..."
     fi
+else
+    echo "Docker already installed."
+fi
 
-    echo "[*] Checking Docker Compose..."
-    if ! command -v docker-compose >/dev/null 2>&1; then
-        echo "[*] Installing Docker Compose..."
+echo "=== Step 4: Install Docker Compose ==="
+if ! command -v docker-compose &> /dev/null; then
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        sudo apt install -y docker-compose
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
         brew install docker-compose
     fi
-fi
-
-# -------------------
-# Docker login
-# -------------------
-echo
-echo ">>> Logging into GitHub Container Registry..."
-read -p "Enter GitHub username: " GH_USER
-read -s -p "Enter GitHub token: " GH_TOKEN
-echo
-echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_USER" --password-stdin
-
-# -------------------
-# Run docker-compose
-# -------------------
-if [ -f "docker-compose.yml" ]; then
-    echo "[*] Running docker-compose up -d..."
-    docker-compose up -d
 else
-    echo "!!! docker-compose.yml not found in current directory."
+    echo "Docker Compose already installed."
 fi
+
+echo "=== Step 5: Login to GitHub Container Registry ==="
+echo "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" | docker login ghcr.io -u iqlab2025 --password-stdin
+
+if [ $? -ne 0 ]; then
+    echo "Docker login failed. Check your token."
+    exit 1
+fi
+
+echo "=== Step 6: Start services with Docker Compose ==="
+docker-compose up -d
+
+echo "✅ Setup complete. Containers are running."
