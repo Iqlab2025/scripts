@@ -44,7 +44,7 @@ if [ -z "$GHCR_TOKEN" ]; then
     exit 1
 fi
 
-echo "$GHCR_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
+echo "$GHCR_TOKEN" | docker login ghcr.io -u iqlab2025 --password-stdin
 
 echo "Fetching docker-compose.yaml..."
 curl -sSL https://raw.githubusercontent.com/Iqlab2025/scripts/main/docker-compose.yaml -o docker-compose.yaml
