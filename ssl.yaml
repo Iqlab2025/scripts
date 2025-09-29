@@ -1,0 +1,256 @@
+# ===============================
+# Namespace
+# ===============================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: client-a
+---
+# ===============================
+# MySQL PersistentVolume
+# ===============================
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mysql-pv
+  namespace: client-a
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /data/client-a/mysql
+---
+# ===============================
+# MySQL PersistentVolumeClaim
+# ===============================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pvc
+  namespace: client-a
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  volumeName: mysql-pv
+---
+# ===============================
+# MySQL Deployment
+# ===============================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  namespace: client-a
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      nodeName: worker   # <--- Node-specific
+      containers:
+      - name: mysql
+        image: mysql:8.0
+        imagePullPolicy: IfNotPresent
+        args:
+          - "--character-set-server=utf8mb4"
+          - "--collation-server=utf8mb4_bin"
+          - "--log-bin-trust-function-creators=1"
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: "iqlab@2025"
+        - name: MYSQL_DATABASE
+          value: "zabbix"
+        - name: MYSQL_USER
+          value: "zabbix"
+        - name: MYSQL_PASSWORD
+          value: "iqlab@2025"
+        ports:
+        - containerPort: 3306
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: mysql-data
+      volumes:
+      - name: mysql-data
+        persistentVolumeClaim:
+          claimName: mysql-pvc
+---
+# ===============================
+# MySQL Service
+# ===============================
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-service
+  namespace: client-a
+spec:
+  selector:
+    app: mysql
+  ports:
+  - port: 3306
+    targetPort: 3306
+---
+# ===============================
+# Zabbix Server Deployment
+# ===============================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zabbix-server
+  namespace: client-a
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zabbix-server
+  template:
+    metadata:
+      labels:
+        app: zabbix-server
+    spec:
+      nodeName: worker
+      initContainers:
+      - name: wait-for-mysql
+        image: mysql:8.0
+        command:
+          - sh
+          - -c
+          - |
+            until mysql -h mysql-service -uzabbix -piqlab@2025 -e "SELECT 1;" zabbix; do
+              echo "Waiting for MySQL..."
+              sleep 5
+            done
+      containers:
+      - name: zabbix-server
+        image: zabbix/zabbix-server-mysql:alpine-latest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DB_SERVER_HOST
+          value: "mysql-service"
+        - name: MYSQL_DATABASE
+          value: "zabbix"
+        - name: MYSQL_USER
+          value: "zabbix"
+        - name: MYSQL_PASSWORD
+          value: "iqlab@2025"
+        - name: ZBX_STARTAGENTS
+          value: "5"
+        - name: MYSQL_SSL_MODE
+          value: "DISABLED"
+        ports:
+        - containerPort: 10051
+---
+# ===============================
+# Zabbix Server Service
+# ===============================
+apiVersion: v1
+kind: Service
+metadata:
+  name: zabbix-server-service
+  namespace: client-a
+spec:
+  selector:
+    app: zabbix-server
+  ports:
+  - port: 10051
+    targetPort: 10051
+---
+# ===============================
+# Zabbix Web Deployment
+# ===============================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zabbix-web
+  namespace: client-a
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zabbix-web
+  template:
+    metadata:
+      labels:
+        app: zabbix-web
+    spec:
+      nodeName: worker
+      containers:
+      - name: zabbix-web
+        image: ghcr.io/iqlab2025/my-zabbix:custom
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DB_SERVER_HOST
+          value: "mysql-service"
+        - name: MYSQL_DATABASE
+          value: "zabbix"
+        - name: MYSQL_USER
+          value: "zabbix"
+        - name: MYSQL_PASSWORD
+          value: "iqlab@2025"
+        - name: ZBX_SERVER_HOST
+          value: "zabbix-server-service"
+        - name: PHP_TZ
+          value: "Europe/London"
+        - name: MYSQL_SSL_MODE
+          value: "DISABLED"
+        ports:
+        - containerPort: 8080
+---
+# ===============================
+# Zabbix Web Service
+# ===============================
+apiVersion: v1
+kind: Service
+metadata:
+  name: zabbix-web-service
+  namespace: client-a
+spec:
+  type: NodePort
+  selector:
+    app: zabbix-web
+  ports:
+  - port: 8080
+    targetPort: 8080
+    nodePort: 30081
+---
+# ===============================
+# Zabbix Agent Deployment
+# ===============================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zabbix-agent
+  namespace: client-a
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zabbix-agent
+  template:
+    metadata:
+      labels:
+        app: zabbix-agent
+    spec:
+      nodeName: worker
+      containers:
+      - name: zabbix-agent
+        image: zabbix/zabbix-agent:alpine-latest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: ZBX_SERVER_HOST
+          value: "zabbix-server-service"
+        - name: ZBX_HOSTNAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        ports:
+        - containerPort: 10050
