@@ -1,0 +1,1 @@
+kubeadm join 0.tcp.free.pinggy.link:9 --token m890rj.woh1owqi0c3av6ei --discovery-token-ca-cert-hash sha256:2a79fb6a59e74f2267674c7831825d92c211268471e1c137058ef759e422b64d 
