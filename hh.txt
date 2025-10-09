@@ -1,4 +1,2 @@
-uname -r
-lsmod | grep overlay
-lsmod | grep br_netfilter
-systemd-detect-virt
+mount | grep cgroup
+cat /proc/filesystems | grep cgroup
