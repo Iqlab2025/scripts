@@ -1,0 +1,4 @@
+uname -r
+lsmod | grep overlay
+lsmod | grep br_netfilter
+systemd-detect-virt
